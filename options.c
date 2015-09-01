@@ -65,7 +65,8 @@ static const struct {
 	{ FORCE_SORT_CRITERIA, "force_sort_criteria" },
 	{ MAX_CONNECTIONS, "max_connections" },
 	{ MERGE_MEDIA_DIRS, "merge_media_dirs" },
-	{ ENABLE_EXTERNAL_MTA_FILES, "samsung_external_mta_files" }
+	{ ENABLE_EXTERNAL_MTA_FILES, "samsung_external_mta_files" },
+	{ ALLOW_SEARCH, "allow_search" }
 };
 
 int

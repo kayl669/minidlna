@@ -58,7 +58,8 @@ enum upnpconfigoptions {
 	FORCE_SORT_CRITERIA,		/* force sorting by a given sort criteria */
 	MAX_CONNECTIONS,		/* maximum number of simultaneous connections */
 	MERGE_MEDIA_DIRS,		/* don't add an extra directory level when there are multiple media dirs */
-	ENABLE_EXTERNAL_MTA_FILES       /* Samsung: enable generation of external MTA files (for slower NAS devices) */
+	ENABLE_EXTERNAL_MTA_FILES,       /* Samsung: enable generation of external MTA files (for slower NAS devices) */
+	ALLOW_SEARCH                    /* allow dlna clients to search - some clients abuse this (LG) */
 };
 
 /* readoptionsfile()

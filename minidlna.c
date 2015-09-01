@@ -806,6 +806,10 @@ init(int argc, char **argv)
             if (strtobool(ary_options[i].value))
                 SETFLAG(EXTERNAL_MTA_FILE_MASK);
             break;
+		case ALLOW_SEARCH:
+			if (strtobool(ary_options[i].value))
+				SETFLAG(ALLOW_SEARCH_MASK);
+			break;
 		case ROOT_CONTAINER:
 			switch (ary_options[i].value[0]) {
 			case '.':

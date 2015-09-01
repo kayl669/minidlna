@@ -1814,13 +1814,22 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	                                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
 	                                      " where o.OBJECT_ID = %Q and (%s) ", ContainerID, where),
 	                      orderBy, StartingIndex, RequestedCount);
-	DPRINTF(E_DEBUG, L_HTTP, "Search SQL: %s\n", sql);
-	ret = sqlite3_exec(db, sql, callback, (void *) &args, &zErrMsg);
-	if( (ret != SQLITE_OK) && (zErrMsg != NULL) )
+	if (GETFLAG(ALLOW_SEARCH_MASK))
 	{
-		DPRINTF(E_WARN, L_HTTP, "SQL error: %s\nBAD SQL: %s\n", zErrMsg, sql);
-		sqlite3_free(zErrMsg);
+		DPRINTF(E_DEBUG, L_HTTP, "Search SQL: %s\n", sql);
+		ret = sqlite3_exec(db, sql, callback, (void *) &args, &zErrMsg);
+		if( (ret != SQLITE_OK) && (zErrMsg != NULL) )
+		{
+			DPRINTF(E_WARN, L_HTTP, "SQL error: %s\nBAD SQL: %s\n", zErrMsg, sql);
+			sqlite3_free(zErrMsg);
+		}
 	}
+	else
+ 	{
+		args.returned=0;
+		totalMatches=0;
+ 	}
+
 	sqlite3_free(sql);
 	ret = strcatf(&str, "&lt;/DIDL-Lite&gt;</Result>\n"
 	                    "<NumberReturned>%u</NumberReturned>\n"
