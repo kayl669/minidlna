@@ -348,7 +348,10 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 	                       l, xml);
 	obj->buffersize = obj->tosend;
 	free(xml);
+	//DEBUG
+	DPRINTF(E_DEBUG, L_HTTP, "||Begin|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
 	DPRINTF(E_DEBUG, L_HTTP, "Sending UPnP Event response:\n%s\n", obj->buffer);
+	DPRINTF(E_DEBUG, L_HTTP, "||End|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
 	obj->state = ESending;
 }
 

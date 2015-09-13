@@ -884,7 +884,10 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 		h->state = 100;
 	}
 
-	DPRINTF(E_DEBUG, L_HTTP, "HTTP REQUEST: %.*s\n", h->req_buflen, h->req_buf);
+	// DEBUG
+	// DPRINTF(E_DEBUG, L_HTTP, "||Begin|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
+	// DPRINTF(E_DEBUG, L_HTTP, "HTTP REQUEST: \n%.*s\n", h->req_buflen, h->req_buf);
+	// DPRINTF(E_DEBUG, L_HTTP, "||End|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
 	if(strcmp("POST", HttpCommand) == 0)
 	{
 		h->req_command = EPost;
@@ -1224,7 +1227,10 @@ void
 SendResp_upnphttp(struct upnphttp * h)
 {
 	int n;
-	DPRINTF(E_DEBUG, L_HTTP, "HTTP RESPONSE: %.*s\n", h->res_buflen, h->res_buf);
+	// DEBUG
+	// DPRINTF(E_DEBUG, L_HTTP, "||Begin|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
+	// DPRINTF(E_DEBUG, L_HTTP, "HTTP RESPONSE: \n%.*s\n", h->res_buflen, h->res_buf);
+	// DPRINTF(E_DEBUG, L_HTTP, "||End|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
 	n = send(h->socket, h->res_buf, h->res_buflen, 0);
 	if(n<0)
 	{
@@ -2003,7 +2009,10 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 	              "contentFeatures.dlna.org: %sDLNA.ORG_OP=%02X;DLNA.ORG_CI=%X;DLNA.ORG_FLAGS=%08X%024X\r\n\r\n",
 	              last_file.dlna, 1, 0, dlna_flags, 0);
 
-	//DEBUG DPRINTF(E_DEBUG, L_HTTP, "RESPONSE: %s\n", str.data);
+	//DEBUG
+	// DPRINTF(E_DEBUG, L_HTTP, "||Begin|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
+	// DPRINTF(E_DEBUG, L_HTTP, "RESPONSE: \n%s\n", str.data);
+	// DPRINTF(E_DEBUG, L_HTTP, "||End|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||\n");
 	if( send_data(h, str.data, str.off, MSG_MORE) == 0 )
 	{
 		if( h->req_command != EHead )
