@@ -87,7 +87,7 @@ int
 ends_with(const char *haystack, const char *needle);
 
 void
-check_for_captions(const char *path, int64_t detailID);
+check_for_captions(const char *path);
 
 sqlite_int64
 GetFolderMetadata(const char *name, const char *path, const char *artist, const char *genre, sqlite_int64 album_art);

@@ -423,12 +423,9 @@ insert_file(char *name, const char *path, const char *parentID, media_types type
 	}
 	else if( (types & TYPE_VIDEO) && is_video(name) )
 	{
- 		orig_name = strdup(name);
 		strcpy(base, VIDEO_DIR_ID);
 		strcpy(class, "item.videoItem");
 		detailID = GetVideoMetadata(path, name);
-		if( !detailID )
-			strcpy(name, orig_name);
 	}
 	else if( is_playlist(name) )
 	{
@@ -441,7 +438,7 @@ insert_file(char *name, const char *path, const char *parentID, media_types type
 		strcpy(class, "item.audioItem.musicTrack");
 		detailID = GetAudioMetadata(path, name);
 	}
-	free(orig_name);
+	strcpy(name, orig_name);
 	if( !detailID )
 	{
 		DPRINTF(E_WARN, L_SCANNER, "Unsuccessful getting details for %s!\n", path);
@@ -469,12 +466,50 @@ insert_file(char *name, const char *path, const char *parentID, media_types type
 		insert_directory(name, path, base, typedir_parentID, typedir_objectID);
 		free(typedir_parentID);
 	}
+	strcpy(name, orig_name);
 	sprintf(parent_ID, "%s%s", base, parentID);
 	sql_exec(db, "INSERT into OBJECTS (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
 	             "VALUES ('%s$%"PRIX64"', %Q, %Q, '%s', %"PRId64", %Q)",
 	             parent_ID, object, parent_ID, objectID, class, detailID, name);
 
 	insert_containers(name, path, objectID, class, detailID);
+
+	if( is_video(orig_name) )
+	{
+		DIR * ds;
+		struct dirent *e;
+
+		char *nPath = strdup(path);
+		char *nFile = strdup(path);
+		strip_ext(nFile);
+		dirname(nPath);
+		ds = opendir(nPath);
+		if( ds != NULL )
+		{
+			while( (e = readdir(ds)) )
+			{
+					char *cmpFile = malloc(PATH_MAX);
+					sprintf(cmpFile, "%s/%s", nPath, e->d_name);
+				if( access(cmpFile, R_OK) == 0)
+				{
+					strip_ext(cmpFile);
+					strip_ext(cmpFile);
+					if(strcmp(nFile, cmpFile) == 0 && ends_with(e->d_name, ".srt"))
+					{
+						sprintf(cmpFile, "%s/%s", nPath, e->d_name);
+						check_for_captions(cmpFile);
+					}
+				}
+					free(cmpFile);
+				}
+			}
+		closedir(ds);
+		free(nFile);
+		free(nPath);
+	}
+
+	free(orig_name);
+
 	return 0;
 }
 

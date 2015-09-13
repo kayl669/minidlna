@@ -507,3 +507,21 @@ resolve_unknown_type(const char * path, media_types dir_type)
 	return type;
 }
 
+char *
+getLangCaption(const char * file)
+{
+    char *nFile = strdup(file);
+    strip_ext(nFile);
+    char * period = strrchr(nFile, '.');
+	if( period )
+    {
+        period++;
+    }
+    else
+    {
+        period = nFile + strlen(nFile);
+    }
+    char * ret = strdup(period);
+    free(nFile);
+    return ret;
+}

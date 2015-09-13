@@ -1072,18 +1072,21 @@ callback(void *args, int argc, char **argv, char **azColName)
 				case ELGDevice:
 				case EAsusOPlay:
 				default:
-					if( passed_args->flags & FLAG_HAS_CAPTIONS )
-					{
-						if( passed_args->flags & FLAG_CAPTION_RES )
-							ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:text/srt:*\"&gt;"
-									     "http://%s:%d/Captions/%s.srt"
-									   "&lt;/res&gt;",
-									   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
-						else if( passed_args->filter & FILTER_SEC_CAPTION_INFO_EX )
-							ret = strcatf(str, "&lt;sec:CaptionInfoEx sec:type=\"srt\"&gt;"
-							                     "http://%s:%d/Captions/%s.srt"
-							                   "&lt;/sec:CaptionInfoEx&gt;",
-							                   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
+					if( passed_args->flags & FLAG_HAS_CAPTIONS ) {
+						char *caption_path = sql_get_text_field(db, "SELECT PATH from CAPTIONS where ID = %s", detailID);
+						if( caption_path ) {
+							char * caption_ext;
+							caption_ext = strrchr(caption_path, '.');
+							if( caption_ext ) {
+								++caption_ext;
+								if( passed_args->flags & FLAG_CAPTION_RES )
+									ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:text/%s:*\"&gt;http://%s:%d/Captions/%s.%s&lt;/res&gt;",
+												  caption_ext, lan_addr[passed_args->iface].str, runtime_vars.port, detailID, caption_ext);
+								else if( passed_args->filter & FILTER_SEC_CAPTION_INFO_EX )
+									ret = strcatf(str, "&lt;sec:CaptionInfoEx sec:type=&quot;%s&quot;&gt;http://%s:%d/Captions/%s.%s&lt;/sec:CaptionInfoEx&gt;",
+												  caption_ext, lan_addr[passed_args->iface].str, runtime_vars.port, detailID, caption_ext);
+							}
+						}
 					}
 					free(alt_title);
 					break;

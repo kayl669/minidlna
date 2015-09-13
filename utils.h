@@ -96,4 +96,6 @@ const char *mime_to_ext(const char * mime);
 int make_dir(char * path, mode_t mode);
 unsigned int DJBHash(uint8_t *data, int len);
 
+char *
+getLangCaption(const char * file);
 #endif

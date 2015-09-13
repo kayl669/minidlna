@@ -116,44 +116,109 @@ dlna_timestamp_is_present(const char *filename, int *raw_packet_size)
 }
 
 void
-check_for_captions(const char *path, int64_t detailID)
+check_for_captions(const char *path)
 {
-	char file[MAXPATHLEN];
-	char *p;
-	int ret;
+	char *file = malloc(MAXPATHLEN);
 
-	strncpyt(file, path, sizeof(file));
-	p = strip_ext(file);
-	if (!p)
-		p = strrchr(file, '\0');
+	sprintf(file, "%s", path);
+	strip_ext(file);
+	strip_ext(file);
 
-	/* If we weren't given a detail ID, look for one. */
-	if (!detailID)
+	sqlite_int64 detailID;
+
+	detailID = sql_get_int64_field(db, "SELECT ID from CAPTIONS where PATH = %Q", path);
+	if( detailID )
+		return;
+
+	detailID = sql_get_int64_field(db, "SELECT ID from DETAILS where PATH glob '%q*'"
+								" and MIME glob 'video/*' AND ID NOT IN(SELECT ID FROM CAPTIONS)", file);
+	char *lang = getLangCaption(path);
+	if( detailID != 0 )
 	{
-		detailID = sql_get_int64_field(db, "SELECT ID from DETAILS where (PATH > '%q.' and PATH <= '%q.z')"
-		                            " and MIME glob 'video/*' limit 1", file, file);
-		if (detailID <= 0)
+		sprintf(file, "%s", path);
+		sql_exec(db, "INSERT into CAPTIONS (ID, PATH) VALUES (%"PRId64", %Q)", detailID, file);
+		if(strlen(lang) != 0)
 		{
-			//DPRINTF(E_MAXDEBUG, L_METADATA, "No file found for caption %s.\n", path);
-			return;
+			sql_exec(db, "UPDATE DETAILS set TITLE = (SELECT TITLE||' - %q' FROM DETAILS WHERE ID=%"PRId64") where ID = %"PRId64, lang, detailID, detailID);
 		}
 	}
-
-	strcpy(p, ".srt");
-	ret = access(file, R_OK);
-	if (ret != 0)
+	else
 	{
-		strcpy(p, ".smi");
-		ret = access(file, R_OK);
-	}
+		//file.lang.srt
+		strip_ext(file);
+		detailID = sql_get_int64_field(db, "SELECT ID from DETAILS where PATH glob '%q*'"
+									" and MIME glob 'video/*' limit 1", file);
+		if(detailID != 0)
+		{
+			char * title = sql_get_text_field(db, "SELECT TITLE from DETAILS WHERE ID=%"PRId64, detailID);
+			char * caption = sql_get_text_field(db, "SELECT PATH from CAPTIONS WHERE ID=%"PRId64, detailID);
+			char* captionLang = getLangCaption(caption);
+			if(strlen(captionLang) != 0)
+			{
+				char * period = strrchr(title, '-');
+				period--;
+				*period = '\0';
+	        }
 
-	if (ret == 0)
-	{
-		sql_exec(db, "INSERT into CAPTIONS"
-		             " (ID, PATH) "
-		             "VALUES"
-		             " (%lld, %Q)", detailID, file);
+			int res;
+			if(strlen(lang) != 0) {
+				res = sql_exec(db, "INSERT into DETAILS (PATH, SIZE, TIMESTAMP, DURATION, DATE, CHANNELS, BITRATE, SAMPLERATE, RESOLUTION, TITLE, CREATOR, ARTIST, GENRE, COMMENT, DLNA_PN, MIME, ALBUM_ART) "
+							   "SELECT PATH, SIZE, TIMESTAMP, DURATION, DATE, CHANNELS, BITRATE, SAMPLERATE, RESOLUTION, '%q - %q', "
+							   "CREATOR, ARTIST, GENRE, COMMENT, DLNA_PN, MIME, ALBUM_ART FROM DETAILS WHERE ID=%"PRId64" limit 1",
+							   title, lang, detailID);
+			} else {
+				res = sql_exec(db, "INSERT into DETAILS (PATH, SIZE, TIMESTAMP, DURATION, DATE, CHANNELS, BITRATE, SAMPLERATE, RESOLUTION, TITLE, CREATOR, ARTIST, GENRE, COMMENT, DLNA_PN, MIME, ALBUM_ART) "
+							   "SELECT PATH, SIZE, TIMESTAMP, DURATION, DATE, CHANNELS, BITRATE, SAMPLERATE, RESOLUTION, %Q, "
+							   "CREATOR, ARTIST, GENRE, COMMENT, DLNA_PN, MIME, ALBUM_ART FROM DETAILS WHERE ID=%"PRId64" limit 1",
+							   title, detailID);
+	    	}
+			if( res != SQLITE_OK )
+        	{
+				fprintf(stderr, "Error inserting details for '%s'!\n", path);
+            }
+			else
+			{
+				sqlite_int64 newDetailID = sqlite3_last_insert_rowid(db);
+				sql_exec(db, "INSERT into CAPTIONS (ID, PATH) VALUES (%"PRId64", %Q)", newDetailID, path);
+                char **result;
+				int rows = 0;
+				char newRefID[64];
+				char * sql = sqlite3_mprintf("SELECT PARENT_ID, REF_ID, CLASS, NAME FROM OBJECTS WHERE DETAIL_ID=%"PRId64, detailID);
+				sql_get_table(db, sql, &result, &rows, NULL);
+				int i=1;
+				for(; i <= rows; i++ )
+				{
+					char objectID[64];
+					char * parentID = result[4*i];
+					char * refID = result[4*i+1];
+					char * class = result[4*i+2];
+					char * name = result[4*i+3];
+					sqlite_int64 object = get_next_available_id("OBJECTS", parentID);
+					sprintf(objectID, "%s$%"PRIX64, parentID, object);
+					if(refID==NULL)
+					{
+						sprintf(newRefID, "%s$%"PRIX64, parentID, object);
+						sql_exec(db, "INSERT into OBJECTS (OBJECT_ID, PARENT_ID, CLASS, DETAIL_ID, NAME) "
+									 "VALUES (%Q, %Q, %Q, %"PRId64", %Q)",
+									 objectID, parentID, class, newDetailID, name);
+	                }
+					else
+	                {
+						sql_exec(db, "INSERT into OBJECTS (OBJECT_ID, PARENT_ID, REF_ID, CLASS, DETAIL_ID, NAME) "
+									 "VALUES (%Q, %Q, %Q, %Q, %"PRId64", %Q)",
+									 objectID, parentID, newRefID, class, newDetailID, name);
+	                }
+				}
+				sqlite3_free_table(result);
+				sqlite3_free(sql);
+			}
+			free(captionLang);
+			sqlite3_free(title);
+			sqlite3_free(caption);
+		}
 	}
+	free(lang);
+	free(file);
 }
 
 void
@@ -1554,7 +1619,6 @@ video_no_dlna:
 	else
 	{
 		ret = sqlite3_last_insert_rowid(db);
-		check_for_captions(path, ret);
 	}
     /* if option is set, create suitable Samsung MTA file for this video */
     if (m.durationInt > 0 && GETFLAG(EXTERNAL_MTA_FILE_MASK))

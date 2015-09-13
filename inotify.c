@@ -309,7 +309,7 @@ inotify_insert_file(char * name, const char * path)
 	if( is_image(path) )
 		update_if_album_art(path);
 	else if( is_caption(path) )
-		check_for_captions(path, 0);
+		check_for_captions(path);
 
 	/* Check if we're supposed to be scanning for this file type in this directory */
 	while( media_path )
@@ -560,25 +560,61 @@ int
 inotify_remove_file(const char * path)
 {
 	char *sql;
-	char art_cache[PATH_MAX];
-	char *id;
+	char *art_cache;
 	char *ptr;
 	char **result;
 	sqlite_int64 detailID;
 	int rows, playlist;
 
-	if( is_caption(path) )
-	{
-		return sql_exec(db, "DELETE from CAPTIONS where PATH = %Q", path);
-	}
 	/* Invalidate the scanner cache so we don't insert files into non-existent containers */
 	valid_cache = 0;
 	playlist = is_playlist(path);
-	id = sql_get_text_field(db, "SELECT ID from %s where PATH = %Q", playlist?"PLAYLISTS":"DETAILS", path);
-	if( !id )
+
+	asprintf(&art_cache, "%s/art_cache%s", db_path, path);
+	sqlite_int64 id = sql_get_int64_field(db, "SELECT ID from ALBUM_ART where PATH = %Q", art_cache);
+	if( id ) {
+		sql_exec(db, "UPDATE DETAILS set ALBUM_ART = 0 where ALBUM_ART = %"PRId64, id);
+		sql_exec(db, "DELETE from ALBUM_ART where PATH = %Q", art_cache);
+		remove(art_cache);
+		free(art_cache);
+	}
+
+	detailID = sql_get_int64_field(db, "SELECT ID from %s where PATH = %Q", playlist?"PLAYLISTS":"DETAILS", path);
+	if( !detailID )
+	{
+        if( is_caption(path) )
+        {
+			char *nPath = strdup(path);
+			strip_ext(nPath);
+			strip_ext(nPath);
+
+			id = sql_get_int64_field(db, "SELECT ID from CAPTIONS where PATH = %Q", path);
+			int count = sql_get_int_field(db, "SELECT count(*) from CAPTIONS where PATH glob '%q*'", nPath);
+			if(count > 1)
+			{
+				sql_exec(db, "DELETE from CAPTIONS where ID = %"PRId64, id);
+				sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %"PRId64, id);
+				sql_exec(db, "DELETE from DETAILS where ID = %"PRId64, id);
+			} else if( count == 1)
+			{
+				char * title = sql_get_text_field(db, "SELECT TITLE from DETAILS WHERE ID = %"PRId64, id);
+				char* lang = getLangCaption(path);
+				if(strlen(lang) != 0)
+				{
+					char * period = strrchr(title, '-');
+					period--;
+					*period = '\0';
+					sql_exec(db, "UPDATE DETAILS set TITLE = %Q WHERE ID = %"PRId64, title, id);
+				}
+				free(lang);
+				sqlite3_free(title);
+				sql_exec(db, "DELETE from CAPTIONS where PATH = %Q", path);
+			}
+			free(nPath);
+    	}
 		return 1;
-	detailID = strtoll(id, NULL, 10);
-	sqlite3_free(id);
+	}
+
 	if( playlist )
 	{
 		sql_exec(db, "DELETE from PLAYLISTS where ID = %"PRId64, detailID);
@@ -628,6 +664,7 @@ inotify_remove_file(const char * path)
 		}
 		sqlite3_free(sql);
 		/* Now delete the actual objects */
+		sql_exec(db, "DELETE from CAPTIONS where ID = %"PRId64, detailID);
 		sql_exec(db, "DELETE from DETAILS where ID = %"PRId64, detailID);
 		sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %"PRId64, detailID);
 	}
@@ -660,6 +697,7 @@ inotify_remove_directory(int fd, const char * path)
 			{
 				detailID = strtoll(result[i], NULL, 10);
 				sql_exec(db, "DELETE from DETAILS where ID = %"PRId64, detailID);
+				sql_exec(db, "DELETE from CAPTIONS where ID = %"PRId64, detailID);
 				sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %"PRId64, detailID);
 			}
 			ret = 0;
