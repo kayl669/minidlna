@@ -928,6 +928,7 @@ init(int argc, char **argv)
 			break;
 		case 'd':
 			debug_flag = 1;
+			break;
 		case 'v':
 			verbose_flag = 1;
 			break;
@@ -1051,8 +1052,8 @@ init(int argc, char **argv)
 	if (debug_flag)
 	{
 		pid = getpid();
-		strcpy(log_str+65, "maxdebug");
-		log_level = log_str;
+		//strcpy(log_str+65, "maxdebug");
+		//log_level = log_str;
 	}
 	else if (GETFLAG(SYSTEMD_MASK))
 	{
