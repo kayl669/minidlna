@@ -389,6 +389,10 @@ ParseHttpHeaders(struct upnphttp * h)
 			{
 				h->reqflags |= FLAG_CAPTION;
 			}
+			else if(strncasecmp(line, "getMediaInfo.sec", 16)==0)
+			{
+			    h->reqflags |= FLAG_MEDIA_INFO;
+			}
 			else if(strncasecmp(line, "FriendlyName", 12)==0)
 			{
 				int i;
@@ -1992,9 +1996,7 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 
 	if( h->reqflags & FLAG_CAPTION )
 	{
-		if( sql_get_int_field(db, "SELECT ID from CAPTIONS where ID = '%lld'", (long long)id) > 0 )
-			strcatf(&str, "CaptionInfo.sec: http://%s:%d/Captions/%lld.srt\r\n",
-			              lan_addr[h->iface].str, runtime_vars.port, (long long)id);
+		strcatf(&str, "CaptionInfo.sec: http://%s:%d/Captions/%lld.srt\r\n", lan_addr[h->iface].str, runtime_vars.port, (long long)id);
 	}
 
 	strcatf(&str, "Accept-Ranges: bytes\r\n"

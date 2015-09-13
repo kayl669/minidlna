@@ -400,6 +400,7 @@ GetCurrentConnectionInfo(struct upnphttp * h, const char * action)
 #define FILTER_PV_SUBTITLE                       0x0C000000
 #define FILTER_AV_MEDIA_CLASS                    0x10000000
 #define FILTER_SEC_META_FILE_INFO                0x20000000
+#define FILTER_SEC_CAPTION_INFO                  0x40000000
 
 static uint32_t
 set_filter_flags(char *filter, struct upnphttp *h)
@@ -538,6 +539,10 @@ set_filter_flags(char *filter, struct upnphttp *h)
 		{
 			flags |= FILTER_RES;
 			flags |= FILTER_RES_SIZE;
+		}
+		else if( strcmp(item, "sec:CaptionInfo") == 0)
+		{
+			flags |= FILTER_SEC_CAPTION_INFO;
 		}
 		else if( strcmp(item, "sec:CaptionInfoEx") == 0 )
 		{
