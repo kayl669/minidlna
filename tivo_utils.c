@@ -135,7 +135,7 @@ seedRandomness(int n, void *pbuf, uint32_t seed)
 void
 TiVoRandomSeedFunc(sqlite3_context *context, int argc, sqlite3_value **argv)
 {
-	int64_t r, seed;
+	sqlite_int64 r, seed;
 
 	if( argc != 1 || sqlite3_value_type(argv[0]) != SQLITE_INTEGER )
 		return;

@@ -108,7 +108,7 @@ update_if_album_art(const char *path)
 	DIR *dh;
 	struct dirent *dp;
 	enum file_types type = TYPE_UNKNOWN;
-	int64_t art_id = 0;
+	sqlite_int64 art_id = 0;
 	int ret;
 
 	strncpyt(fpath, path, sizeof(fpath));
@@ -154,7 +154,7 @@ update_if_album_art(const char *path)
 			DPRINTF(E_DEBUG, L_METADATA, "New file %s looks like cover art for %s\n", path, dp->d_name);
 			snprintf(file, sizeof(file), "%s/%s", dir, dp->d_name);
 			art_id = find_album_art(file, NULL, 0);
-			ret = sql_exec(db, "UPDATE DETAILS set ALBUM_ART = %lld where PATH = '%q'", (long long)art_id, file);
+			ret = sql_exec(db, "UPDATE DETAILS set ALBUM_ART = %"PRId64" where PATH = %Q", art_id, file);
 			if( ret != SQLITE_OK )
 				DPRINTF(E_WARN, L_METADATA, "Error setting %s as cover art for %s\n", match, dp->d_name);
 		}
@@ -388,11 +388,11 @@ generate_albumart(const char * path)
 
 #endif
 
-int64_t
+sqlite_int64
 find_album_art(const char *path, uint8_t *image_data, int image_size)
 {
 	char *album_art = NULL;
-	int64_t ret = 0;
+	sqlite_int64 ret = 0;
 
     if(image_size)
         album_art = check_embedded_art(path, image_data, image_size);
@@ -403,10 +403,10 @@ find_album_art(const char *path, uint8_t *image_data, int image_size)
 
     if (album_art)
 	{
-		ret = sql_get_int_field(db, "SELECT ID from ALBUM_ART where PATH = '%q'", album_art);
+		ret = sql_get_int64_field(db, "SELECT ID from ALBUM_ART where PATH = %Q", album_art);
 		if( !ret )
 		{
-			if( sql_exec(db, "INSERT into ALBUM_ART (PATH) VALUES ('%q')", album_art) == SQLITE_OK )
+			if( sql_exec(db, "INSERT into ALBUM_ART (PATH) VALUES (%Q)", album_art) == SQLITE_OK )
 				ret = sqlite3_last_insert_rowid(db);
 		}
 	}

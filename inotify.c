@@ -446,7 +446,7 @@ inotify_insert_file(char * name, const char * path)
 #ifdef CYGWIN
 		DPRINTF(E_DEBUG, L_INOTIFY, "Inserting %s:%s\n", name, path);
 #endif // CYGWIN
-		insert_file(name, path, id+2, get_next_available_id("OBJECTS", id), types);
+		insert_file(name, path, id+2, types);
 		sqlite3_free(id);
 		if( (is_audio(path) || is_playlist(path)) && next_pl_fill != 1 )
 		{
@@ -474,7 +474,7 @@ inotify_insert_directory(int fd, char *name, const char * path)
 		DPRINTF(E_WARN, L_INOTIFY, "Could not access %s [%s]\n", path, strerror(errno));
 		return -1;
 	}
-	if( sql_get_int_field(db, "SELECT ID from DETAILS where PATH = '%q'", path) > 0 )
+	if( sql_get_int_field(db, "SELECT ID from DETAILS where PATH = %Q", path) > 0 )
 	{
 		DPRINTF(E_DEBUG, L_INOTIFY, "%s already exists\n", path);
 		return 0;
@@ -482,7 +482,7 @@ inotify_insert_directory(int fd, char *name, const char * path)
 
  	parent_buf = strdup(path);
 	id = sql_get_text_field(db, "SELECT OBJECT_ID from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
-	                            " where d.PATH = '%q' and REF_ID is NULL", dirname(parent_buf));
+	                            " where d.PATH = %Q and REF_ID = ''", dirname(parent_buf));
 	if( !id )
 		id = sqlite3_mprintf("%s", BROWSEDIR_ID);
 	insert_directory(name, path, BROWSEDIR_ID, id+2, get_next_available_id("OBJECTS", id));
@@ -559,29 +559,29 @@ inotify_insert_directory(int fd, char *name, const char * path)
 int
 inotify_remove_file(const char * path)
 {
-	char sql[128];
+	char *sql;
 	char art_cache[PATH_MAX];
 	char *id;
 	char *ptr;
 	char **result;
-	int64_t detailID;
+	sqlite_int64 detailID;
 	int rows, playlist;
 
 	if( is_caption(path) )
 	{
-		return sql_exec(db, "DELETE from CAPTIONS where PATH = '%q'", path);
+		return sql_exec(db, "DELETE from CAPTIONS where PATH = %Q", path);
 	}
 	/* Invalidate the scanner cache so we don't insert files into non-existent containers */
 	valid_cache = 0;
 	playlist = is_playlist(path);
-	id = sql_get_text_field(db, "SELECT ID from %s where PATH = '%q'", playlist?"PLAYLISTS":"DETAILS", path);
+	id = sql_get_text_field(db, "SELECT ID from %s where PATH = %Q", playlist?"PLAYLISTS":"DETAILS", path);
 	if( !id )
 		return 1;
 	detailID = strtoll(id, NULL, 10);
 	sqlite3_free(id);
 	if( playlist )
 	{
-		sql_exec(db, "DELETE from PLAYLISTS where ID = %lld", detailID);
+		sql_exec(db, "DELETE from PLAYLISTS where ID = %"PRId64, detailID);
 		sql_exec(db, "DELETE from DETAILS where ID ="
 		             " (SELECT DETAIL_ID from OBJECTS where OBJECT_ID = '%s$%llX')",
 		         MUSIC_PLIST_ID, detailID);
@@ -591,9 +591,7 @@ inotify_remove_file(const char * path)
 	else
 	{
 		/* Delete the parent containers if we are about to empty them. */
-		snprintf(sql, sizeof(sql), "SELECT PARENT_ID from OBJECTS where DETAIL_ID = %lld"
-		                           " and PARENT_ID not like '64$%%'",
-		                           (long long int)detailID);
+		sql = sqlite3_mprintf("SELECT PARENT_ID from OBJECTS where DETAIL_ID = %"PRId64" and PARENT_ID not like '"BROWSEDIR_ID"$%%'", detailID);
 		if( (sql_get_table(db, sql, &result, &rows, NULL) == SQLITE_OK) )
 		{
 			int i, children;
@@ -606,27 +604,32 @@ inotify_remove_file(const char * path)
 					         atoi(strrchr(result[i], '$') + 1));
 				}
 
-				children = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", result[i]);
+				children = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = %Q", result[i]);
 				if( children < 0 )
 					continue;
 				if( children < 2 )
 				{
-					sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = '%s'", result[i]);
+					sql_exec(db, "DELETE from DETAILS where ID ="
+					             " (SELECT DETAIL_ID from OBJECTS where OBJECT_ID = %Q)", result[i]);
+					sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = %Q", result[i]);
 
 					ptr = strrchr(result[i], '$');
 					if( ptr )
 						*ptr = '\0';
-					if( sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", result[i]) == 0 )
+					if( sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = %Q", result[i]) == 0 )
 					{
-						sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = '%s'", result[i]);
+						sql_exec(db, "DELETE from DETAILS where ID ="
+						             " (SELECT DETAIL_ID from OBJECTS where OBJECT_ID = %Q)", result[i]);
+						sql_exec(db, "DELETE from OBJECTS where OBJECT_ID = %Q", result[i]);
 					}
 				}
 			}
 			sqlite3_free_table(result);
 		}
+		sqlite3_free(sql);
 		/* Now delete the actual objects */
-		sql_exec(db, "DELETE from DETAILS where ID = %lld", detailID);
-		sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %lld", detailID);
+		sql_exec(db, "DELETE from DETAILS where ID = %"PRId64, detailID);
+		sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %"PRId64, detailID);
 	}
 	snprintf(art_cache, sizeof(art_cache), "%s/art_cache%s", db_path, path);
 	remove(art_cache);
@@ -639,7 +642,7 @@ inotify_remove_directory(int fd, const char * path)
 {
 	char * sql;
 	char **result;
-	int64_t detailID = 0;
+	sqlite_int64 detailID = 0;
 	int rows, i, ret = 1;
 
 	/* Invalidate the scanner cache so we don't insert files into non-existent containers */
@@ -656,8 +659,8 @@ inotify_remove_directory(int fd, const char * path)
 			for( i=1; i <= rows; i++ )
 			{
 				detailID = strtoll(result[i], NULL, 10);
-				sql_exec(db, "DELETE from DETAILS where ID = %lld", detailID);
-				sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %lld", detailID);
+				sql_exec(db, "DELETE from DETAILS where ID = %"PRId64, detailID);
+				sql_exec(db, "DELETE from OBJECTS where DETAIL_ID = %"PRId64, detailID);
 			}
 			ret = 0;
 		}
@@ -760,7 +763,7 @@ start_inotify()
 					else if( event->mask & (IN_CLOSE_WRITE|IN_MOVED_TO) && st.st_size > 0 )
 					{
 						if( (event->mask & IN_MOVED_TO) ||
-						    (sql_get_int_field(db, "SELECT TIMESTAMP from DETAILS where PATH = '%q'", path_buf) != st.st_mtime) )
+						    (sql_get_int_field(db, "SELECT TIMESTAMP from DETAILS where PATH = %Q", path_buf) != st.st_mtime) )
 						{
 							DPRINTF(E_DEBUG, L_INOTIFY, "The file %s was %s.\n",
 								path_buf, (event->mask & IN_MOVED_TO ? "moved here" : "changed"));

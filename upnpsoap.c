@@ -867,7 +867,7 @@ callback(void *args, int argc, char **argv, char **azColName)
 			if( (passed_args->flags & FLAG_CAPTION_RES) ||
 			    (passed_args->filter & (FILTER_SEC_CAPTION_INFO_EX|FILTER_PV_SUBTITLE)) )
 			{
-				if( sql_get_int_field(db, "SELECT ID from CAPTIONS where ID = '%s'", detailID) > 0 )
+				if( sql_get_int64_field(db, "SELECT ID from CAPTIONS where ID = %s", detailID) > 0 )
 					passed_args->flags |= FLAG_HAS_CAPTIONS;
 			}
 			/* From what I read, Samsung TV's expect a [wrong] MIME type of x-mkv. */
@@ -949,7 +949,7 @@ callback(void *args, int argc, char **argv, char **azColName)
 		if( passed_args->filter & FILTER_SEC_DCM_INFO ) {
 			/* Get bookmark */
 			ret = strcatf(str, "&lt;sec:dcmInfo&gt;CREATIONDATE=0,FOLDER=%s,BM=%d&lt;/sec:dcmInfo&gt;",
-			              title, sql_get_int_field(db, "SELECT SEC from BOOKMARKS where ID = '%s'", detailID));
+			              title, sql_get_int_field(db, "SELECT SEC from BOOKMARKS where ID = %s", detailID));
 		}
 		if( passed_args->filter & FILTER_SEC_META_FILE_INFO) {
 			/* Advertise chapter data */
@@ -1773,7 +1773,7 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	                                     " where (OBJECT_ID glob '%q%s') and (%s))"
 	                                     " + "
 	                                     "(select count(*) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
-	                                     " where (OBJECT_ID = '%q') and (%s))",
+	                                     " where (OBJECT_ID = %Q) and (%s))",
 	                                     ContainerID, sep, where, ContainerID, where);
 	if( totalMatches < 0 )
 	{
@@ -1802,14 +1802,14 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 
 	sql = sqlite3_mprintf( SELECT_COLUMNS
 	                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
-	                      " where OBJECT_ID glob '%q%s' and (%s) %s "
+	                      " where o.OBJECT_ID glob '%q%s' and (%s) %s "
 	                      "%z %s"
 	                      " limit %d, %d",
 	                      ContainerID, sep, where, groupBy,
 	                      (*ContainerID == '*') ? NULL :
 	                      sqlite3_mprintf("UNION ALL " SELECT_COLUMNS
 	                                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
-	                                      " where OBJECT_ID = '%q' and (%s) ", ContainerID, where),
+	                                      " where o.OBJECT_ID = %Q and (%s) ", ContainerID, where),
 	                      orderBy, StartingIndex, RequestedCount);
 	DPRINTF(E_DEBUG, L_HTTP, "Search SQL: %s\n", sql);
 	ret = sqlite3_exec(db, sql, callback, (void *) &args, &zErrMsg);
@@ -1943,8 +1943,7 @@ SamsungSetBookmark(struct upnphttp * h, const char * action)
 	{
 		int ret;
 		ret = sql_exec(db, "INSERT OR REPLACE into BOOKMARKS"
-		                   " VALUES "
-		                   "((select DETAIL_ID from OBJECTS where OBJECT_ID = '%q'), %q)", ObjectID, PosSecond);
+		                   " VALUES ((select DETAIL_ID from OBJECTS where OBJECT_ID = %Q), %q)", ObjectID, PosSecond);
 		if( ret != SQLITE_OK )
 			DPRINTF(E_WARN, L_METADATA, "Error setting bookmark %s on ObjectID='%s'\n", PosSecond, ObjectID);
 		BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);

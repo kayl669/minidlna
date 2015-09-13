@@ -259,15 +259,14 @@ free_metadata(metadata_t *m, uint32_t flags)
 		free(m->resolution);
 }
 
-int64_t
-GetFolderMetadata(const char *name, const char *path, const char *artist, const char *genre, int64_t album_art)
+sqlite_int64
+GetFolderMetadata(const char *name, const char *path, const char *artist, const char *genre, sqlite_int64 album_art)
 {
-	int ret;
+	sqlite3_int64 ret;
 
 	ret = sql_exec(db, "INSERT into DETAILS"
 	                   " (TITLE, PATH, CREATOR, ARTIST, GENRE, ALBUM_ART) "
-	                   "VALUES"
-	                   " ('%q', %Q, %Q, %Q, %Q, %lld);",
+	                   "VALUES (%Q, %Q, %Q, %Q, %Q, %"PRId64");",
 	                   name, path, artist, artist, genre, album_art);
 	if( ret != SQLITE_OK )
 		ret = 0;
@@ -277,16 +276,16 @@ GetFolderMetadata(const char *name, const char *path, const char *artist, const 
 	return ret;
 }
 
-int64_t
+sqlite_int64
 GetAudioMetadata(const char *path, char *name)
 {
 	char type[4];
 	static char lang[6] = { '\0' };
 	struct stat file;
-	int64_t ret;
+	sqlite_int64 ret;
 	char *esc_tag;
 	int i;
-	int64_t album_art = 0;
+	sqlite_int64 album_art = 0;
 	struct song_metadata song;
 	metadata_t m;
 	uint32_t free_flags = FLAG_MIME|FLAG_DURATION|FLAG_DLNA_PN|FLAG_DATE;
@@ -458,9 +457,8 @@ GetAudioMetadata(const char *path, char *name)
 	ret = sql_exec(db, "INSERT into DETAILS"
 	                   " (PATH, SIZE, TIMESTAMP, DURATION, CHANNELS, BITRATE, SAMPLERATE, DATE,"
 	                   "  TITLE, CREATOR, ARTIST, ALBUM, GENRE, COMMENT, DISC, TRACK, DLNA_PN, MIME, ALBUM_ART) "
-	                   "VALUES"
-	                   " (%Q, %lld, %lld, '%s', %d, %d, %d, %Q, %Q, %Q, %Q, %Q, %Q, %Q, %d, %d, %Q, '%s', %lld);",
-	                   path, (long long)file.st_size, (long long)file.st_mtime, m.duration, song.channels, song.bitrate,
+	                   "VALUES (%Q, %lld, %ld, %Q, %Q, %ld, %ld, %ld, %Q, %Q, %Q,%Q, %Q, %Q, %Q, %Q, %"PRId64");",
+	                   path, (long long)file.st_size, file.st_mtime, m.duration, song.channels, song.bitrate,
 	                   song.samplerate, m.date, m.title, m.creator, m.artist, m.album, m.genre, m.comment, song.disc,
 	                   song.track, m.dlna_pn, song.mime?song.mime:m.mime, album_art);
 	if( ret != SQLITE_OK )
@@ -488,7 +486,7 @@ libjpeg_error_handler(j_common_ptr cinfo)
 	return;
 }
 
-int64_t
+sqlite_int64
 GetImageMetadata(const char *path, char *name)
 {
 	ExifData *ed;
@@ -501,7 +499,7 @@ GetImageMetadata(const char *path, char *name)
 	char make[32], model[64] = {'\0'};
 	char b[1024];
 	struct stat file;
-	int64_t ret;
+	sqlite_int64 ret;
 	image_s *imsrc;
 	metadata_t m;
 	uint32_t free_flags = 0xFFFFFFFF;
@@ -637,12 +635,9 @@ no_exifdata:
 	xasprintf(&m.resolution, "%dx%d", width, height);
 
 	ret = sql_exec(db, "INSERT into DETAILS"
-	                   " (PATH, TITLE, SIZE, TIMESTAMP, DATE, RESOLUTION,"
-	                    " ROTATION, THUMBNAIL, CREATOR, DLNA_PN, MIME) "
-	                   "VALUES"
-	                   " (%Q, '%q', %lld, %lld, %Q, %Q, %u, %d, %Q, %Q, %Q);",
-	                   path, name, (long long)file.st_size, (long long)file.st_mtime, m.date,
-	                   m.resolution, m.rotation, thumb, m.creator, m.dlna_pn, m.mime);
+	                   " (PATH, TITLE, SIZE, TIMESTAMP, DATE, RESOLUTION, ROTATION, THUMBNAIL, CREATOR, DLNA_PN, MIME) "
+	                   "VALUES (%Q, %Q, %lld, %ld, %Q, %Q, %Q, %d, %Q, %Q, %Q);",
+	                   path, name, (long long)file.st_size, file.st_mtime, m.date, m.resolution, m.rotation, thumb, m.creator, m.dlna_pn, m.mime);
 	if( ret != SQLITE_OK )
 	{
 		DPRINTF(E_ERROR, L_METADATA, "Error inserting details for '%s'!\n", path);
@@ -657,7 +652,7 @@ no_exifdata:
 	return ret;
 }
 
-int64_t
+sqlite_int64
 GetVideoMetadata(const char *path, char *name)
 {
 	struct stat file;
@@ -668,7 +663,7 @@ GetVideoMetadata(const char *path, char *name)
 	int audio_stream = -1, video_stream = -1;
 	enum audio_profiles audio_profile = PROFILE_AUDIO_UNKNOWN;
 	char fourcc[4];
-	int64_t album_art = 0;
+	sqlite_int64 album_art = 0;
 	char nfo[MAXPATHLEN], *ext;
 	struct song_metadata video;
 	metadata_t m;
@@ -1546,9 +1541,8 @@ video_no_dlna:
 	ret = sql_exec(db, "INSERT into DETAILS"
 	                   " (PATH, SIZE, TIMESTAMP, DURATION, DATE, CHANNELS, BITRATE, SAMPLERATE, RESOLUTION,"
 	                   "  TITLE, CREATOR, ARTIST, GENRE, COMMENT, DLNA_PN, MIME, ALBUM_ART) "
-	                   "VALUES"
-	                   " (%Q, %lld, %lld, %Q, %Q, %u, %u, %u, %Q, '%q', %Q, %Q, %Q, %Q, %Q, '%q', %lld);",
-	                   path, (long long)file.st_size, (long long)file.st_mtime, m.duration,
+	                   "VALUES (%Q, %lld, %ld, %Q, %Q, %ld, %ld, %ld, %Q, %Q, %Q,%Q, %Q, %Q, %Q, %Q, %"PRId64");",
+	                   path, (long long)file.st_size, file.st_mtime, m.duration,
 	                   m.date, m.channels, m.bitrate, m.frequency, m.resolution,
 			   m.title, m.creator, m.artist, m.genre, m.comment, m.dlna_pn,
                            m.mime, album_art);

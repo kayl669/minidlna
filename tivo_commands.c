@@ -254,7 +254,7 @@ callback(void *args, int argc, char **argv, char **azColName)
 		int count;
 		/* Determine the number of children */
 #ifdef __sparc__ /* Adding filters on large containers can take a long time on slow processors */
-		count = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", id);
+		count = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = %Q", id);
 #else
 		count = sql_get_int_field(db, "SELECT count(*) from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID) where PARENT_ID = '%s' and "
 		                              " (MIME in ('image/jpeg', 'audio/mpeg', 'video/mpeg', 'video/x-tivo-mpeg', 'video/x-tivo-mpeg-ts')"
@@ -287,7 +287,7 @@ callback(void *args, int argc, char **argv, char **azColName)
 	               " d.COMMENT, d.DATE, d.RESOLUTION, d.MIME, d.DISC, d.TRACK "
 
 static void
-SendItemDetails(struct upnphttp *h, int64_t item)
+SendItemDetails(struct upnphttp *h, sqlite_int64 item)
 {
 	char *sql;
 	char *zErrMsg = NULL;
@@ -302,12 +302,12 @@ SendItemDetails(struct upnphttp *h, int64_t item)
 	str.off = sprintf(str.data, "<?xml version='1.0' encoding='UTF-8' ?>\n<TiVoItem>");
 	args.str = &str;
 	args.requested = 1;
-	xasprintf(&sql, SELECT_COLUMNS
+	sql = sqlite3_mprintf(SELECT_COLUMNS
 	               "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
-		       " where o.DETAIL_ID = %lld group by o.DETAIL_ID", (long long)item);
+		       " where o.DETAIL_ID = %"PRId64" group by o.DETAIL_ID", item);
 	DPRINTF(E_DEBUG, L_TIVO, "%s\n", sql);
 	ret = sqlite3_exec(db, sql, callback, (void *) &args, &zErrMsg);
-	free(sql);
+	sqlite3_free(sql);
 	if( ret != SQLITE_OK )
 	{
 		DPRINTF(E_ERROR, L_HTTP, "SQL error: %s\n", zErrMsg);
@@ -390,7 +390,7 @@ SendContainer(struct upnphttp *h, const char *objectID, int itemStart, int itemC
 	}
 	else
 	{
-		item = sql_get_text_field(db, "SELECT NAME from OBJECTS where OBJECT_ID = '%q'", objectID);
+		item = sql_get_text_field(db, "SELECT NAME from OBJECTS where OBJECT_ID = %Q", objectID);
 		if( item )
 		{
 			title = escape_tag(item, 1);
@@ -407,7 +407,7 @@ SendContainer(struct upnphttp *h, const char *objectID, int itemStart, int itemC
 	}
 	else
 	{
-		which = sqlite3_mprintf("PARENT_ID = '%q'", objectID);
+		which = sqlite3_mprintf("PARENT_ID = %Q", objectID);
 	}
 
 	if( sortOrder )
@@ -663,7 +663,7 @@ ProcessTiVoCommand(struct upnphttp *h, const char *orig_path)
 	char *saveptr = NULL, *item;
 	char *command = NULL, *container = NULL, *anchorItem = NULL;
 	char *sortOrder = NULL, *filter = NULL, *sformat = NULL;
-	int64_t detailItem=0;
+	sqlite_int64 detailItem=0;
 	int itemStart=0, itemCount=-100, anchorOffset=0, recurse=0;
 	unsigned long int randomSeed=0;
 

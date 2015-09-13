@@ -1402,7 +1402,7 @@ SendResp_albumArt(struct upnphttp * h, char * object)
 	char header[512];
 	char *path;
 	off_t size;
-	long long id;
+	sqlite_int64 id;
 	int fd;
 	struct string_s str;
 
@@ -1415,7 +1415,7 @@ SendResp_albumArt(struct upnphttp * h, char * object)
 
 	id = strtoll(object, NULL, 10);
 
-	path = sql_get_text_field(db, "SELECT PATH from ALBUM_ART where ID = '%lld'", id);
+	path = sql_get_text_field(db, "SELECT PATH from ALBUM_ART where ID = %"PRId64, id);
 	if( !path )
 	{
 		DPRINTF(E_WARN, L_HTTP, "ALBUM_ART ID %s not found, responding ERROR 404\n", object);
@@ -1457,13 +1457,13 @@ SendResp_caption(struct upnphttp * h, char * object)
 	char header[512];
 	char *path;
 	off_t size;
-	long long id;
+	sqlite_int64 id;
 	int fd;
 	struct string_s str;
 
 	id = strtoll(object, NULL, 10);
 
-	path = sql_get_text_field(db, "SELECT PATH from CAPTIONS where ID = %lld", id);
+	path = sql_get_text_field(db, "SELECT PATH from CAPTIONS where ID = %"PRId64, id);
 	if( !path )
 	{
 		DPRINTF(E_WARN, L_HTTP, "CAPTION ID %s not found, responding ERROR 404\n", object);
@@ -1502,7 +1502,7 @@ SendResp_thumbnail(struct upnphttp * h, char * object)
 {
 	char header[512];
 	char *path;
-	long long id;
+	sqlite_int64 id;
 	ExifData *ed;
 	ExifLoader *l;
 	struct string_s str;
@@ -1515,7 +1515,7 @@ SendResp_thumbnail(struct upnphttp * h, char * object)
 	}
 
 	id = strtoll(object, NULL, 10);
-	path = sql_get_text_field(db, "SELECT PATH from DETAILS where ID = '%lld'", id);
+	path = sql_get_text_field(db, "SELECT PATH from DETAILS where ID = %"PRId64, id);
 	if( !path )
 	{
 		DPRINTF(E_WARN, L_HTTP, "DETAIL ID %s not found, responding ERROR 404\n", object);
@@ -1580,7 +1580,7 @@ SendResp_resizedimg(struct upnphttp * h, char * object)
 	char *saveptr, *item = NULL;
 	int rotate;
 	int pixw = 0, pixh = 0;
-	long long id;
+	sqlite_int64 id;
 	int rows=0, chunked, ret;
 	image_s *imsrc = NULL, *imdst = NULL;
 	int scale = 1;
@@ -1630,7 +1630,7 @@ SendResp_resizedimg(struct upnphttp * h, char * object)
 		else if( strcasecmp(key, "rotation") == 0 )
 		{
 			rotate = (rotate + atoi(val)) % 360;
-			sql_exec(db, "UPDATE DETAILS set ROTATION = %d where ID = %lld", rotate, id);
+			sql_exec(db, "UPDATE DETAILS set ROTATION = %d where ID = %"PRId64, rotate, id);
 		}
 		else if( strcasecmp(key, "pixelshape") == 0 )
 		{
@@ -1801,13 +1801,13 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 	char **result;
 	int rows, ret;
 	off_t total, offset, size;
-	int64_t id;
+	sqlite_int64 id;
 	int sendfh;
 	uint32_t dlna_flags = DLNA_FLAG_DLNA_V1_5|DLNA_FLAG_HTTP_STALLING|DLNA_FLAG_TM_B;
 	uint32_t cflags = h->req_client ? h->req_client->type->flags : 0;
 	const char *tmode;
 	enum client_types ctype = h->req_client ? h->req_client->type->type : 0;
-	static struct { int64_t id;
+	static struct { sqlite_int64 id;
 	                enum client_types client;
 	                char path[PATH_MAX];
 	                char mime[32];
@@ -1823,7 +1823,7 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 		if( strstr(object, "?albumArt=true") )
 		{
 			char *art;
-			art = sql_get_text_field(db, "SELECT ALBUM_ART from DETAILS where ID = '%lld'", id);
+			art = sql_get_text_field(db, "SELECT ALBUM_ART from DETAILS where ID = %"PRId64, id);
 			if (art)
 			{
 				SendResp_albumArt(h, art);
@@ -1836,11 +1836,11 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 	}
 	if( id != last_file.id || ctype != last_file.client )
 	{
-		snprintf(buf, sizeof(buf), "SELECT PATH, MIME, DLNA_PN from DETAILS where ID = '%lld'", (long long)id);
+		snprintf(buf, sizeof(buf), "SELECT PATH, MIME, DLNA_PN from DETAILS where ID = %"PRId64, id);
 		ret = sql_get_table(db, buf, &result, &rows, NULL);
 		if( (ret != SQLITE_OK) )
 		{
-			DPRINTF(E_ERROR, L_HTTP, "Didn't find valid file for %lld!\n", (long long)id);
+			DPRINTF(E_ERROR, L_HTTP, "Didn't find valid file for %lld!\n", id);
 			Send500(h);
 			return;
 		}
@@ -1892,7 +1892,7 @@ SendResp_dlnafile(struct upnphttp *h, char *object)
 	}
 #endif
 
-	DPRINTF(E_INFO, L_HTTP, "Serving DetailID: %lld [%s]\n", (long long)id, last_file.path);
+	DPRINTF(E_INFO, L_HTTP, "Serving DetailID: %lld [%s]\n", id, last_file.path);
 
 	if( h->reqflags & FLAG_XFERSTREAMING )
 	{
@@ -2256,7 +2256,7 @@ SendResp_samsung_mta_file(struct upnphttp * h, char * object)
 		*dash = '\0';
 
 	/* get path and duration of video */
-    sprintf(sql_buf, "select PATH, DURATION from DETAILS where ID = '%s';", object);
+    sprintf(sql_buf, "select PATH, DURATION from DETAILS where ID = %s;", object);
     DPRINTF(E_DEBUG, L_HTTP, "Get MTA file SQL: %s\n", sql_buf);
     sql_get_table(db, sql_buf, &result, &rows, NULL);
     if( !rows )

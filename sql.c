@@ -124,13 +124,13 @@ sql_get_int_field(sqlite3 *db, const char *fmt, ...)
 	return ret;
 }
 
-int64_t
+sqlite_int64
 sql_get_int64_field(sqlite3 *db, const char *fmt, ...)
 {
 	va_list		ap;
 	int		counter, result;
 	char		*sql;
-	int64_t		ret;
+	sqlite_int64	ret;
 	sqlite3_stmt	*stmt;
 	
 	va_start(ap, fmt);

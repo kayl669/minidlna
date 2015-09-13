@@ -65,21 +65,19 @@ insert_playlist(const char * path, char * name)
 
 	DPRINTF(E_DEBUG, L_SCANNER, "Playlist %s contains %d items\n", name, items);
 	
-	matches = sql_get_int_field(db, "SELECT count(*) from PLAYLISTS where NAME = '%q'", name);
+	matches = sql_get_int_field(db, "SELECT count(*) from PLAYLISTS where NAME = %Q", name);
 	if( matches > 0 )
 	{
 		sql_exec(db, "INSERT into PLAYLISTS"
 		             " (NAME, PATH, ITEMS) "
-	        	     "VALUES"
-		             " ('%q(%d)', '%q', %d)",
+	        	     "VALUES ('%q(%d)', %Q, %d)",
 		             name, matches, path, items);
 	}
 	else
 	{
 		sql_exec(db, "INSERT into PLAYLISTS"
 		             " (NAME, PATH, ITEMS) "
-	        	     "VALUES"
-		             " ('%q', '%q', %d)",
+	        	     "VALUES (%Q, %Q, %d)",
 		             name, path, items);
 	}
 	return 0;
@@ -119,7 +117,7 @@ fill_playlists(void)
 	struct song_metadata plist;
 	struct stat file;
 	char type[4];
-	int64_t plID, detailID;
+	sqlite_int64 plID, detailID;
 	char sql_buf[] = "SELECT ID, NAME, PATH from PLAYLISTS where ITEMS > FOUND";
 
 	DPRINTF(E_WARN, L_SCANNER, "Parsing playlists...\n");
@@ -144,14 +142,12 @@ fill_playlists(void)
 			continue;
 
 		DPRINTF(E_DEBUG, L_SCANNER, "Scanning playlist \"%s\" [%s]\n", plname, plpath);
-		if( sql_get_int_field(db, "SELECT ID from OBJECTS where PARENT_ID = '"MUSIC_PLIST_ID"'"
-		                          " and NAME = '%q'", plname) <= 0 )
+		if( sql_get_int64_field(db, "SELECT ID from OBJECTS where PARENT_ID = '"MUSIC_PLIST_ID"'"
+		                          " and NAME = %Q", plname) <= 0 )
 		{
 			detailID = GetFolderMetadata(plname, NULL, NULL, NULL, 0);
-			sql_exec(db, "INSERT into OBJECTS"
-			             " (OBJECT_ID, PARENT_ID, DETAIL_ID, CLASS, NAME) "
-			             "VALUES"
-			             " ('%s$%llX', '%s', %lld, 'container.%s', '%q')",
+			sql_exec(db, "INSERT into OBJECTS (OBJECT_ID, PARENT_ID, DETAIL_ID, CLASS, NAME) "
+			             "VALUES ('%s$%llX', '%s', %lld, 'container.%s', %Q)",
 			             MUSIC_PLIST_ID, plID, MUSIC_PLIST_ID, detailID, class, plname);
 		}
 
@@ -173,7 +169,7 @@ fill_playlists(void)
 				if( hash == last_hash )
 				{
 					fname = basename(plist.path);
-					detailID = sql_get_int_field(db, "SELECT ID from DETAILS where PATH = '%q/%q'", last_dir, fname);
+					detailID = sql_get_int64_field(db, "SELECT ID from DETAILS where PATH = '%q/%q'", last_dir, fname);
 				}
 				else
 					detailID = -1;
@@ -205,16 +201,14 @@ fill_playlists(void)
 			}
 retry:
 			//DEBUG DPRINTF(E_DEBUG, L_SCANNER, "* Searching for %s in db\n", fname);
-			detailID = sql_get_int_field(db, "SELECT ID from DETAILS where PATH like '%%%q'", fname);
+			detailID = sql_get_int64_field(db, "SELECT ID from DETAILS where PATH like '%%%q'", fname);
 			if( detailID > 0 )
 			{
 found:
 				DPRINTF(E_DEBUG, L_SCANNER, "+ %s found in db\n", fname);
-				sql_exec(db, "INSERT into OBJECTS"
-				             " (OBJECT_ID, PARENT_ID, CLASS, DETAIL_ID, NAME, REF_ID) "
-				             "SELECT"
-				             " '%s$%llX$%d', '%s$%llX', CLASS, DETAIL_ID, NAME, OBJECT_ID from OBJECTS"
-				             " where DETAIL_ID = %lld and OBJECT_ID glob '" BROWSEDIR_ID "$*'",
+				 sql_exec(db, "INSERT into OBJECTS (OBJECT_ID, PARENT_ID, CLASS, DETAIL_ID, NAME, REF_ID) "
+				             "SELECT '%s$%llX$%d', '%s$%llX', CLASS, DETAIL_ID, NAME, OBJECT_ID from OBJECTS"
+				             " where DETAIL_ID = %lld and OBJECT_ID glob '"BROWSEDIR_ID"$*'",
 				             MUSIC_PLIST_ID, plID, plist.track,
 				             MUSIC_PLIST_ID, plID,
 				             detailID);
