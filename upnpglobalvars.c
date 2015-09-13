@@ -93,4 +93,4 @@ volatile short int quitting = 0;
 volatile uint32_t updateID = 0;
 const char *force_sort_criteria = NULL;
 
-img_t png_sm, png_lrg, jpeg_sm, jpeg_lrg;
+img_t png_sm, png_lrg, jpeg_sm, jpeg_lrg, jpeg_chapter;

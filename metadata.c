@@ -363,6 +363,7 @@ GetAudioMetadata(const char *path, char *name)
 		m.dlna_pn = strdup(song.dlna_pn);
 	if( song.year )
 		xasprintf(&m.date, "%04d-01-01", song.year);
+    m.durationInt = song.song_length;
 	xasprintf(&m.duration, "%d:%02d:%02d.%03d",
 	                      (song.song_length/3600000),
 	                      (song.song_length/60000%60),
@@ -820,6 +821,7 @@ GetVideoMetadata(const char *path, char *name)
 			sec = (int)(duration % 60);
 			ms = (int)(ctx->duration / (AV_TIME_BASE/1000) % 1000);
 			xasprintf(&m.duration, "%d:%02d:%02d.%03d", hours, min, sec, ms);
+            m.durationInt = duration;
 		}
 
 		/* NOTE: The DLNA spec only provides for ASF (WMV), TS, PS, and MP4 containers.
@@ -1560,6 +1562,10 @@ video_no_dlna:
 		ret = sqlite3_last_insert_rowid(db);
 		check_for_captions(path, ret);
 	}
+    /* if option is set, create suitable Samsung MTA file for this video */
+    if (m.durationInt > 0 && GETFLAG(EXTERNAL_MTA_FILE_MASK))
+        generate_external_samsung_mta_file(path, m.durationInt);
+
 	free_metadata(&m, free_flags);
 	free(path_cpy);
 

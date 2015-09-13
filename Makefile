@@ -29,6 +29,10 @@ OS_NAME = Linux
 OS_VERSION = 2.6.22.7
 endif
 
+# set, if you want to include thumbnail creation support
+# (requires libffmpegthumbnailer library)
+CREATE_THUMBNAILS=yes
+
 RM = rm -f
 INSTALL = install
 
@@ -76,6 +80,14 @@ CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
 
 LDFLAGS =-Lusr/lib
 CC = arm-none-linux-gnueabi-gcc
+endif
+
+ifneq ($(CREATE_THUMBNAILS),no)
+  LIBS += -lffmpegthumbnailer
+ifeq (,$(findstring CYGWIN,$(OS_NAME)))
+  LIBS += -lswscale -lpng12
+endif
+  CFLAGS += -DTHUMBNAIL_CREATION_SUPPORT
 endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o

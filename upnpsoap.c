@@ -399,6 +399,7 @@ GetCurrentConnectionInfo(struct upnphttp * h, const char * action)
 #define FILTER_PV_SUBTITLE_FILE_URI              0x08000000
 #define FILTER_PV_SUBTITLE                       0x0C000000
 #define FILTER_AV_MEDIA_CLASS                    0x10000000
+#define FILTER_SEC_META_FILE_INFO                0x20000000
 
 static uint32_t
 set_filter_flags(char *filter, struct upnphttp *h)
@@ -545,6 +546,10 @@ set_filter_flags(char *filter, struct upnphttp *h)
 		else if( strcmp(item, "sec:dcmInfo") == 0 )
 		{
 			flags |= FILTER_SEC_DCM_INFO;
+		}
+		else if( strcmp(item, "sec:MetaFileInfo") == 0)
+		{
+			flags |= FILTER_SEC_META_FILE_INFO;
 		}
 		else if( strcmp(item, "res@pv:subtitleFileType") == 0 )
 		{
@@ -940,6 +945,11 @@ callback(void *args, int argc, char **argv, char **azColName)
 			/* Get bookmark */
 			ret = strcatf(str, "&lt;sec:dcmInfo&gt;CREATIONDATE=0,FOLDER=%s,BM=%d&lt;/sec:dcmInfo&gt;",
 			              title, sql_get_int_field(db, "SELECT SEC from BOOKMARKS where ID = '%s'", detailID));
+		}
+		if( passed_args->filter & FILTER_SEC_META_FILE_INFO) {
+			/* Advertise chapter data */
+			ret = strcatf(str, "&lt;sec:MetaFileInfo sec:type=&quot;mta&quot;&gt;http://%s:%d/MTA/%s.mta&lt;/sec:MetaFileInfo&gt;",
+                                      lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
 		}
 		if( artist ) {
 			if( (*mime == 'v') && (passed_args->filter & FILTER_UPNP_ACTOR) ) {

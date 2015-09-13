@@ -179,5 +179,8 @@ Send501(struct upnphttp *);
 void
 SendResp_upnphttp(struct upnphttp *);
 
+void
+generate_external_samsung_mta_file(const char* path, int duration);
+
 #endif
 

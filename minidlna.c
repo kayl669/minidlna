@@ -784,6 +784,10 @@ init(int argc, char **argv)
 			if (strtobool(ary_options[i].value))
 				SETFLAG(DLNA_STRICT_MASK);
 			break;
+        case ENABLE_EXTERNAL_MTA_FILES:
+            if (strtobool(ary_options[i].value))
+                SETFLAG(EXTERNAL_MTA_FILE_MASK);
+            break;
 		case ROOT_CONTAINER:
 			switch (ary_options[i].value[0]) {
 			case '.':
@@ -1063,6 +1067,7 @@ init(int argc, char **argv)
 	memset(&png_lrg, '\0', sizeof(img_t));
 	memset(&jpeg_sm, '\0', sizeof(img_t));
 	memset(&jpeg_lrg, '\0', sizeof(img_t));
+	memset(&jpeg_chapter, '\0', sizeof(img_t));
 
     char *app_path = realpath(argv[0], buf);
     char *last=strrchr(app_path,'/');
@@ -1072,6 +1077,7 @@ init(int argc, char **argv)
 	read_file(&png_lrg, app_path, "png_lrg.png");
 	read_file(&jpeg_sm, app_path, "jpeg_sm.jpg");
 	read_file(&jpeg_lrg, app_path, "jpeg_lrg.jpg");
+	read_file(&jpeg_chapter, app_path, "chapter.jpg");
 
 	/* set signal handlers */
 	memset(&sa, 0, sizeof(struct sigaction));
@@ -1500,6 +1506,7 @@ shutdown:
 	free(png_lrg.data);
 	free(jpeg_sm.data);
 	free(jpeg_lrg.data);
+	free(jpeg_chapter.data);
 
 	log_close();
 	freeoptions();

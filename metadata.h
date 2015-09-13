@@ -39,6 +39,7 @@ typedef struct metadata_s {
 	unsigned int rotation;
 	char *       resolution;
 	char *       duration;
+	int          durationInt;
 	char *       date;
 	char *       mime;
 	char *       dlna_pn;

@@ -32,6 +32,10 @@
 
 #include <jpeglib.h>
 
+#ifdef THUMBNAIL_CREATION_SUPPORT
+# include <libffmpegthumbnailer/videothumbnailerc.h>
+#endif
+
 #include "upnpglobalvars.h"
 #include "albumart.h"
 #include "sql.h"
@@ -345,14 +349,59 @@ found_file:
 	return NULL;
 }
 
+#ifdef THUMBNAIL_CREATION_SUPPORT
+
+/*
+ * generates jpegs for movies as thumbnail files. The new thumbs have the name of the movie, with an ".jpg"
+ * appended. The thumbs are created with the minidlna-user (e.g. root).
+ */
+char *
+generate_albumart(const char * path)
+{
+    int rc;
+    char * thumbfile;
+
+	char mypath[MAXPATHLEN];
+	strncpyt(mypath, path, sizeof(mypath));
+
+    if (ends_with(path, ".avi") || ends_with(path, ".mkv") || ends_with(path, ".mpg")) {
+        video_thumbnailer* vt = video_thumbnailer_create();
+        vt->thumbnail_image_type = Jpeg;
+        /* DPRINTF(E_DEBUG, L_METADATA, "generate_albumart - movie\n"); */
+        char thumbdir[MAXPATHLEN];
+
+        if( art_cache_exists(path, &thumbfile) )
+            return thumbfile;
+
+        strncpyt(thumbdir, thumbfile, sizeof(thumbdir));
+        make_dir(dirname(thumbdir), S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+
+	    DPRINTF(E_DEBUG, L_METADATA, "generate_albumart - path: %s, thumbfile: %s\n", path, thumbfile);
+
+        rc = video_thumbnailer_generate_thumbnail_to_file(vt, path, thumbfile);
+        DPRINTF(E_DEBUG, L_METADATA, "rc: %d\n", rc);
+        video_thumbnailer_destroy(vt);
+        return thumbfile;
+    }
+    return 0;
+}
+
+#endif
+
 int64_t
 find_album_art(const char *path, uint8_t *image_data, int image_size)
 {
 	char *album_art = NULL;
 	int64_t ret = 0;
 
-	if( (image_size && (album_art = check_embedded_art(path, image_data, image_size))) ||
-	    (album_art = check_for_album_file(path)) )
+    if(image_size)
+        album_art = check_embedded_art(path, image_data, image_size);
+    if (!album_art) album_art = check_for_album_file(path);
+#ifdef THUMBNAIL_CREATION_SUPPORT
+    if (!album_art) album_art = generate_albumart(path);
+#endif
+
+    if (album_art)
 	{
 		ret = sql_get_int_field(db, "SELECT ID from ALBUM_ART where PATH = '%q'", album_art);
 		if( !ret )

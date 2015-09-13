@@ -191,6 +191,7 @@ extern uint32_t runtime_flags;
 #define NO_PLAYLIST_MASK      0x0008
 #define SYSTEMD_MASK          0x0010
 #define MERGE_MEDIA_DIRS_MASK 0x0020
+#define EXTERNAL_MTA_FILE_MASK      0x0040
 
 #define SETFLAG(mask)	runtime_flags |= mask
 #define GETFLAG(mask)	(runtime_flags & mask)
@@ -221,7 +222,7 @@ typedef struct img_s {
 	long size;
 } img_t;
 
-extern img_t png_sm, png_lrg, jpeg_sm, jpeg_lrg;
+extern img_t png_sm, png_lrg, jpeg_sm, jpeg_lrg, jpeg_chapter;
 
 /* lan addresses */
 extern int n_lan_addr;
