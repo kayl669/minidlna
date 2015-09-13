@@ -360,6 +360,33 @@ realpath_conv_path(char *path, char *resolved_path)
 
 #endif // CYGWIN
 
+static void read_file(img_t* img, const char* dir, const char *filename) {
+	char path[1024];
+	sprintf( path, "%s/%s", dir, filename);
+	FILE *file = fopen(path, "rb");
+	size_t nsize = 0;
+	char err[1024];
+	if(!file) {
+		sprintf(err, "Failed to open path %s", path);
+
+		perror(err);
+		exit(EXIT_FAILURE);
+	}
+	fseek( file , 0L , SEEK_END);
+	img->size = ftell( file );
+	rewind( file );
+
+	img->data = calloc(img->size + 1, sizeof(char));
+	if(!img->data) {
+		perror("read_file(): failed to allocate memory");
+		exit(EXIT_FAILURE);
+	}
+	if ( ( nsize = fread(img->data, sizeof(char), img->size, file) ) < 0 ) {
+		sprintf(err, "Failed to read file\n");
+	}
+	fclose(file);
+}
+
 static void
 check_db(sqlite3 *db, int new_db, pid_t *scanner_pid)
 {
@@ -1031,6 +1058,21 @@ init(int argc, char **argv)
 	else
 		strcpy(presentationurl, "/");
 
+	/* Read icons */
+	memset(&png_sm, '\0', sizeof(img_t));
+	memset(&png_lrg, '\0', sizeof(img_t));
+	memset(&jpeg_sm, '\0', sizeof(img_t));
+	memset(&jpeg_lrg, '\0', sizeof(img_t));
+
+    char *app_path = realpath(argv[0], buf);
+    char *last=strrchr(app_path,'/');
+    last[1]=0;
+
+	read_file(&png_sm, app_path, "png_sm.png");
+	read_file(&png_lrg, app_path, "png_lrg.png");
+	read_file(&jpeg_sm, app_path, "jpeg_sm.jpg");
+	read_file(&jpeg_lrg, app_path, "jpeg_lrg.jpg");
+
 	/* set signal handlers */
 	memset(&sa, 0, sizeof(struct sigaction));
 	sa.sa_handler = sigterm;
@@ -1453,6 +1495,11 @@ shutdown:
 
 	if (pidfilename && unlink(pidfilename) < 0)
 		DPRINTF(E_ERROR, L_GENERAL, "Failed to remove pidfile %s: %s\n", pidfilename, strerror(errno));
+
+	free(png_sm.data);
+	free(png_lrg.data);
+	free(jpeg_sm.data);
+	free(jpeg_lrg.data);
 
 	log_close();
 	freeoptions();
