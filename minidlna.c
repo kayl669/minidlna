@@ -552,6 +552,24 @@ static int strtobool(const char *str)
 		(atoi(str) == 1));
 }
 
+static int
+set_uuid(char *uuidbuf, char *value)
+{
+	if(!value) return -1;
+	int len = strlen(value);
+	if(len > 36) return -1;
+	if(!strcmp(value, "auto"))
+	{
+		int pid = getpid();
+		char tmp[5];
+		pid %= 65536;
+		sprintf(tmp, "%04x", pid);
+		memcpy(uuidbuf+19, tmp, 4);
+	}
+	else memcpy(uuidbuf, value, len);
+	return 0;
+}
+
 static void init_nls(void)
 {
 #ifdef ENABLE_NLS
@@ -820,7 +838,7 @@ init(int argc, char **argv)
 			minissdpdsocketpath = ary_options[i].value;
 			break;
 		case UPNPUUID:
-			strcpy(uuidvalue+5, ary_options[i].value);
+            set_uuid(uuidvalue+5, ary_options[i].value);
 			break;
 		case USER_ACCOUNT:
 			uid = strtoul(ary_options[i].value, &string, 0);
@@ -970,6 +988,12 @@ init(int argc, char **argv)
 				DPRINTF(E_FATAL, L_GENERAL, "Option -%c takes one argument.\n", argv[i][1]);
 			break;
 			break;
+ 		case 'U':
+ 		    if (i+1 < argc)
+ 			set_uuid(uuidvalue+5, argv[++i]);
+ 		    else
+ 			fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
+ 		    break;
 #ifdef __linux__
 		case 'S':
 			SETFLAG(SYSTEMD_MASK);
@@ -987,11 +1011,12 @@ init(int argc, char **argv)
 
 	if (runtime_vars.port <= 0)
 	{
-		printf("Usage:\n\t"
+		DPRINTF(E_ERROR, L_GENERAL, "Usage:\n\t"
 			"%s [-d] [-v] [-f config_file] [-p port]\n"
 			"\t\t[-i network_interface] [-u uid_to_run_as]\n"
 			"\t\t[-t notify_interval] [-P pid_filename]\n"
 			"\t\t[-s serial] [-m model_number]\n"
+            "\t\t[-U sets the UUID to use]\n"
 #ifdef __linux__
 			"\t\t[-w url] [-R] [-L] [-S] [-V] [-h]\n"
 #else
