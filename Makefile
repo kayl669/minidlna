@@ -15,12 +15,19 @@ DESTDIR=/cygdrive/z/
 
 $(warning useful commands)
 $(warning make)
-$(warning make install-nas)
+$(warning make VERSION=NAS)
+$(warning make VERSION=NAS install-nas)
 $(warning make distclean)
 
+VERSION = NORMAL
+ifneq (,$(findstring NORMAL,$(VERSION)))
+OS_NAME = ${shell uname -s}
+OS_VERSION = ${shell uname -r}
+else
 $(warning Building NAS version)
 OS_NAME = Linux
 OS_VERSION = 2.6.22.7
+endif
 
 RM = rm -f
 INSTALL = install
@@ -42,8 +49,25 @@ ALLOBJS = $(BASEOBJS) $(LNXOBJS)
 
 LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lavutil -lavcodec -lid3tag -lFLAC -logg -lvorbis -lz
 
-LIBS += -ljack -lx264 -lrtmp -lgnutls -lbz2 -lxvidcore -lvpx -lvorbisenc -ltheoraenc -ltheoradec -lspeex -lschroedinger-1.0 -lopenjpeg -lmp3lame -lgsm -ldirac_encoder -lva -lgcrypt -ltasn1 -lorc-0.4 -lgpg-error
+ifneq (,$(findstring CYGWIN,$(OS_NAME)))
+  LIBS += -lintl -lws2_32 -liphlpapi
+endif
+ifeq (,$(findstring CYGWIN,$(OS_NAME)))
+  LIBS += -ljack -lx264 -lrtmp -lgnutls -lbz2 -lxvidcore -lvpx -lvorbisenc -ltheoraenc -ltheoradec -lspeex -lschroedinger-1.0 -lopenjpeg -lmp3lame -lgsm -ldirac_encoder -lva -lgcrypt -ltasn1 -lorc-0.4 -lgpg-error
+endif
 
+ifneq (,$(findstring CYGWIN,$(OS_NAME)))
+CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+	 -I/usr/include/ \
+	 -I/usr/include/libavutil \
+     -I/usr/include/libavcodec \
+     -I/usr/include/libavformat \
+	 -DSTATIC
+LDFLAGS = -L/usr/lib
+CC = gcc
+endif
+
+ifneq (,$(findstring Linux,$(OS_NAME)))
 CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
     -Iusr/include \
     -Iusr/include/libavutil \
@@ -52,6 +76,7 @@ CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
 
 LDFLAGS =-Lusr/lib
 CC = arm-none-linux-gnueabi-gcc
+endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
 

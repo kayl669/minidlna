@@ -45,7 +45,7 @@
 #include "config.h"
 #if HAVE_GETIFADDRS
 # include <ifaddrs.h>
-# ifdef __linux__
+#if defined(__linux__) || defined(CYGWIN)
 #  ifndef AF_LINK
 #   define AF_LINK AF_INET
 #  endif
@@ -86,7 +86,11 @@ getifaddr(const char *ifname)
 		if (ifname && strcmp(p->ifa_name, ifname) != 0)
 			continue;
 		addr_in = (struct sockaddr_in *)p->ifa_addr;
+#ifndef CYGWIN
 		if (!ifname && (p->ifa_flags & (IFF_LOOPBACK | IFF_SLAVE)))
+#else // CYGWIN
+		if (!ifname && ((p->ifa_flags & IFF_LOOPBACK) || !(p->ifa_flags & IFF_RUNNING)))
+#endif  // CYGWIN
 			continue;
 		memcpy(&lan_addr[n_lan_addr].addr, &addr_in->sin_addr, sizeof(lan_addr[n_lan_addr].addr));
 		if (!inet_ntop(AF_INET, &addr_in->sin_addr, lan_addr[n_lan_addr].str, sizeof(lan_addr[0].str)) )
@@ -191,7 +195,7 @@ getsyshwaddr(char *buf, int len)
 			a = (htonl(addr_in->sin_addr.s_addr) >> 0x18) & 0xFF;
 			if (a == 127)
 				continue;
-#if defined(__linux__)
+#if defined(__linux__) || defined(CYGWIN)
 			struct ifreq ifr;
 			int fd;
 			fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -343,6 +347,34 @@ reload_ifaces(int force_notify)
 	}
 }
 
+#ifdef CYGWIN
+#include <windows.h>
+//#include <winsock2.h>
+
+/* copied from winsock2.h */
+/* can not #include <winsock2.h> */
+/* because there are many defines which conflict with socket functions */
+/* just use WSACreateEvent(), WSAGetLastError(), WSAResetEvent() */
+#define WSA_IO_PENDING (ERROR_IO_PENDING)
+#ifndef WINSOCK_API_LINKAGE
+#ifdef  DECLSPEC_IMPORT
+#define WINSOCK_API_LINKAGE	DECLSPEC_IMPORT
+#else
+#define WINSOCK_API_LINKAGE
+#endif
+#endif /* WINSOCK_API_LINKAGE */
+#define WSAAPI	WINAPI
+#define WSAEVENT HANDLE
+WINSOCK_API_LINKAGE WSAEVENT WSAAPI WSACreateEvent(void);
+WINSOCK_API_LINKAGE int WSAAPI WSAGetLastError(void);
+WINSOCK_API_LINKAGE WINBOOL WSAAPI WSAResetEvent(WSAEVENT hEvent);
+
+#include <iphlpapi.h>
+
+static OVERLAPPED overlap;
+static HANDLE hand;
+#endif // CYGWIN
+
 int
 OpenAndConfMonitorSocket(void)
 {
@@ -371,6 +403,19 @@ OpenAndConfMonitorSocket(void)
 	}
 
 	return s;
+#elif defined(CYGWIN)
+	hand = WSACreateEvent();
+	overlap.hEvent = WSACreateEvent();
+
+	if (NotifyAddrChange(&hand, &overlap) != NO_ERROR)
+	{
+		if (WSAGetLastError() != WSA_IO_PENDING)
+		{
+			printf("NotifyAddrChange error...%d\n", WSAGetLastError());
+			return -1;
+		}
+	}
+	return -2;
 #else
 	return -1;
 #endif
@@ -401,5 +446,12 @@ ProcessMonitorEvent(int s)
 	}
 	if (changed)
 		reload_ifaces(0);
+#elif defined(CYGWIN)
+	if (WaitForSingleObject(overlap.hEvent, 0) == WAIT_OBJECT_0)
+	{
+		WSAResetEvent(overlap.hEvent);
+		NotifyAddrChange(&hand, &overlap);
+		reload_ifaces(1);
+	}
 #endif
 }

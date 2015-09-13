@@ -163,7 +163,11 @@ process_daemonize(void)
 			exit(0);
 	}
 #else
+#ifndef CYGWIN
 	if( daemon(0, 0) < 0 )
+#else
+	if( daemon(1, 0) < 0) // keep current cwd
+#endif // CYGWIN
 		perror("daemon()");
 	pid = getpid();
 #endif

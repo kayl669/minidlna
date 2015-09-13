@@ -142,6 +142,11 @@ case $OS_NAME in
 			fi
 		fi
 		;;
+	CYGWIN*)
+		echo "#define CYGWIN" >> ${CONFIGFILE}
+		echo "#define MSG_MORE 0" >> ${CONFIGFILE}
+		echo "#define HAVE_CLOCK_GETTIME 1" >> ${CONFIGFILE}
+		;;
 	*)
 		echo "Unknown OS : $OS_NAME"
 		exit 1
